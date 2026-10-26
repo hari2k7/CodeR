@@ -1,8 +1,71 @@
 import express from 'express';
-import { redis } from '../redis.js';
+import { redis, subscriberClient } from '../redis.js';
 import { requireAuth } from '../middleware/session.js';
 
 const router = express.Router();
+
+// Connected SSE clients set
+const sseClients = new Set();
+
+// Subscribe to Redis Pub/Sub channel lb:updates using dedicated subscriber client
+subscriberClient.subscribe('lb:updates', (err) => {
+  if (err) {
+    console.error('[SSE PubSub] Failed to subscribe to lb:updates:', err.message);
+  } else {
+    console.log('[SSE PubSub] Subscribed to lb:updates channel for live SSE streaming');
+  }
+});
+
+// Forward messages from Redis Pub/Sub directly to connected SSE browser streams
+subscriberClient.on('message', (channel, message) => {
+  if (channel === 'lb:updates') {
+    for (const client of sseClients) {
+      try {
+        client.write(`data: ${message}\n\n`);
+      } catch (err) {
+        sseClients.delete(client);
+      }
+    }
+  }
+});
+
+/**
+ * GET /leaderboard/stream
+ * Server-Sent Events (SSE) endpoint for real-time leaderboard score and verdict updates
+ *
+ * Demonstrates:
+ *   - Redis Pub/Sub forwarding via dedicated subscriber client
+ *   - 25s keepalive heartbeat
+ *   - Automatic client disconnection cleanup
+ */
+router.get('/stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  sseClients.add(res);
+
+  // Send initial handshake
+  res.write(`data: ${JSON.stringify({ type: 'connected', clientsCount: sseClients.size, timestamp: Date.now() })}\n\n`);
+
+  // Heartbeat every 25 seconds
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(': heartbeat\n\n');
+    } catch {
+      clearInterval(heartbeat);
+      sseClients.delete(res);
+    }
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sseClients.delete(res);
+  });
+});
+
 
 /**
  * GET /leaderboard
