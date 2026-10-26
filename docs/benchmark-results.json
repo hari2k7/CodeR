@@ -1,0 +1,71 @@
+{
+  "metadata": {
+    "scale": "100,000 Users",
+    "date": "2026-10-26T17:37:33.106Z",
+    "nodeVersion": "v22.23.1",
+    "redisHost": "localhost",
+    "mysqlDatabase": "codered_db"
+  },
+  "tests": {
+    "top100Leaderboard": {
+      "unit": "ms per query",
+      "redis": {
+        "avg": 0.273,
+        "p95": 0.631,
+        "min": 0.12,
+        "max": 0.778
+      },
+      "mysql": {
+        "avg": 15.544,
+        "p95": 15.949,
+        "min": 15.069,
+        "max": 15.979
+      },
+      "speedupFactor": 56.9
+    },
+    "singleUserRank": {
+      "unit": "ms per query",
+      "redis": {
+        "avg": 0.032,
+        "p95": 0.057,
+        "min": 0.183,
+        "max": 0.4
+      },
+      "mysql": {
+        "avg": 6.353,
+        "p95": 6.47,
+        "min": 43.379,
+        "max": 45.51
+      },
+      "speedupFactor": 198.5
+    },
+    "scoreUpdates10k": {
+      "unit": "total ms & ops/sec",
+      "redis": {
+        "totalDurationMs": 52.1,
+        "opsPerSec": 192058
+      },
+      "mysql": {
+        "totalDurationMs": 1095.2,
+        "opsPerSec": 9130
+      },
+      "speedupFactor": 21
+    },
+    "cacheComparison": {
+      "unit": "ms per query",
+      "uncachedZrevrange": {
+        "avg": 0.132,
+        "p95": 0.191,
+        "min": 0.063,
+        "max": 1.799
+      },
+      "cachedStringGet": {
+        "avg": 0.024,
+        "p95": 0.031,
+        "min": 0.021,
+        "max": 0.064
+      },
+      "cacheSpeedupFactor": 5.5
+    }
+  }
+}
