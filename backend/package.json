@@ -1,0 +1,26 @@
+{
+  "name": "coderank-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "CodeRank Backend - Real-time Competitive Programming Leaderboard with Redis as primary datastore",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "worker": "node src/worker/judge.js",
+    "seed": "node src/scripts/seed.js",
+    "seed:reset": "node src/scripts/seed.js --reset",
+    "mysql:setup": "node src/scripts/mysql-setup.js",
+    "benchmark": "node src/scripts/benchmark.js",
+    "race-demo": "node src/scripts/race-demo.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "ioredis": "^5.4.2",
+    "mysql2": "^3.12.0",
+    "nodemailer": "^6.9.16"
+  }
+}
