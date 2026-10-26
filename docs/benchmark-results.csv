@@ -1,0 +1,9 @@
+Workload,System,Metric,Avg_ms,p95_ms,Min_ms,Max_ms,Speedup_Factor
+Top-100 Leaderboard,Redis,Query Latency,0.273,0.631,0.12,0.778,56.9x
+Top-100 Leaderboard,MySQL,Query Latency,15.544,15.949,15.069,15.979,1.0x
+Single User Rank,Redis,Query Latency,0.032,0.057,0.183,0.4,198.5x
+Single User Rank,MySQL,Query Latency,6.353,6.47,43.379,45.51,1.0x
+10000 Updates,Redis,Throughput (ops/s),192058,N/A,N/A,N/A,21x
+10000 Updates,MySQL,Throughput (ops/s),9130,N/A,N/A,N/A,1.0x
+Top-100 Cached vs Uncached,Redis Cached String,Query Latency,0.024,0.031,0.021,0.064,5.5x
+Top-100 Cached vs Uncached,Redis Uncached ZSET,Query Latency,0.132,0.191,0.063,1.799,1.0x
