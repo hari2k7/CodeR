@@ -260,8 +260,8 @@ router.get('/me', requireAuth, async (req, res) => {
  */
 router.get('/colleges', async (req, res) => {
   try {
-    // Redis command: ZREVRANGE lb:college 0 9 WITHSCORES
-    const results = await redis.zrevrange('lb:college', 0, 9, 'WITHSCORES');
+    // Redis command: ZREVRANGE lb:college 0 -1 WITHSCORES
+    const results = await redis.zrevrange('lb:college', 0, -1, 'WITHSCORES');
     const colleges = [];
 
     for (let i = 0; i < results.length; i += 2) {

@@ -439,4 +439,199 @@ router.get('/me', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * PUT /auth/me
+ * Update authenticated user's username or college
+ *
+ * Demonstrates:
+ *   - Atomic username uniqueness transition via SETNX
+ *   - Redis Hash field updates via HSET
+ *   - Real-time adjustment of university Sorted Set lb:college
+ */
+router.put('/me', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { username, college } = req.body;
+
+    // Fetch existing profile
+    // Redis command: HGETALL user:<id>
+    const user = await redis.hgetall(`user:${userId}`);
+    if (!user || !user.id) {
+      return res.status(404).json({
+        error: { code: 'USER_NOT_FOUND', message: 'User profile not found.' }
+      });
+    }
+
+    const updates = {};
+    const oldUsername = user.username;
+    const oldCollege = user.college || '';
+
+    // 1. Username Update
+    if (username && username.trim() !== oldUsername) {
+      const cleanUsername = username.trim();
+      if (cleanUsername.length < 3 || cleanUsername.length > 20) {
+        return res.status(400).json({
+          error: { code: 'INVALID_USERNAME', message: 'Username must be between 3 and 20 characters.' }
+        });
+      }
+
+      // Check / claim new username atomically
+      // Redis command: SETNX user:name:<newUsername> <userId>
+      const lockAcquired = await redis.setnx(`user:name:${cleanUsername}`, userId);
+      if (lockAcquired === 0) {
+        return res.status(409).json({
+          error: { code: 'USERNAME_TAKEN', message: 'Username is already taken by another user.' }
+        });
+      }
+
+      // Remove old username index and update set
+      // Redis commands: DEL user:name:<oldUsername>, SREM usernames, SADD usernames
+      await redis.del(`user:name:${oldUsername}`);
+      await redis.srem('usernames', oldUsername);
+      await redis.sadd('usernames', cleanUsername);
+
+      if (process.env.ENABLE_BLOOM_MODULE === 'true') {
+        try {
+          await redis.call('BF.ADD', 'bf:usernames', cleanUsername);
+        } catch {}
+      }
+
+      updates.username = cleanUsername;
+
+      // Update username in active session Hash
+      // Redis command: HSET session:<token> username <cleanUsername>
+      await redis.hset(`session:${req.token}`, 'username', cleanUsername);
+    }
+
+    // 2. College Update
+    if (college !== undefined && college.trim() !== oldCollege) {
+      const cleanCollege = college.trim();
+      updates.college = cleanCollege;
+
+      // Adjust college leaderboard score if user had points
+      // Redis command: ZSCORE lb:global <userId>
+      const scoreStr = await redis.zscore('lb:global', userId);
+      const score = parseInt(scoreStr || '0', 10);
+
+      if (score > 0) {
+        if (oldCollege) {
+          // Redis command: ZINCRBY lb:college -score <oldCollege>
+          await redis.zincrby('lb:college', -score, oldCollege);
+        }
+        if (cleanCollege) {
+          // Redis command: ZINCRBY lb:college score <newCollege>
+          await redis.zincrby('lb:college', score, cleanCollege);
+        }
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      // Redis command: HSET user:<id> ...
+      await redis.hset(`user:${userId}`, updates);
+    }
+
+    // Fetch updated user
+    const updatedUser = await redis.hgetall(`user:${userId}`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully.',
+      user: {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        rating: parseInt(updatedUser.rating || '1200', 10),
+        solved: parseInt(updatedUser.solved || '0', 10),
+        college: updatedUser.college || '',
+        createdAt: updatedUser.createdAt
+      }
+    });
+  } catch (err) {
+    console.error('[Update Profile Error]', err);
+    return res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: err.message }
+    });
+  }
+});
+
+/**
+ * DELETE /auth/me
+ * Permanently deletes user account, lookup keys, session, and associated Redis records
+ *
+ * Demonstrates:
+ *   - Comprehensive multi-key purge in Redis
+ *   - ZREM from Sorted Set leaderboards (lb:global, lb:contest:1)
+ *   - Delta adjustments on aggregate university leaderboard (lb:college)
+ */
+router.delete('/me', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // Fetch user profile to identify associated keys
+    // Redis command: HGETALL user:<id>
+    const user = await redis.hgetall(`user:${userId}`);
+    if (!user || !user.id) {
+      return res.status(404).json({
+        error: { code: 'USER_NOT_FOUND', message: 'User profile not found.' }
+      });
+    }
+
+    // Check user's current score
+    // Redis command: ZSCORE lb:global <userId>
+    const scoreStr = await redis.zscore('lb:global', userId);
+    const score = parseInt(scoreStr || '0', 10);
+
+    const pipeline = redis.pipeline();
+
+    // 1. Remove lookup keys
+    if (user.username) {
+      // Redis command: DEL user:name:<username>
+      pipeline.del(`user:name:${user.username}`);
+      // Redis command: SREM usernames <username>
+      pipeline.srem('usernames', user.username);
+    }
+    if (user.email) {
+      // Redis command: DEL user:email:<email>
+      pipeline.del(`user:email:${user.email.toLowerCase()}`);
+    }
+
+    // 2. Remove user Hash
+    // Redis command: DEL user:<id>
+    pipeline.del(`user:${userId}`);
+
+    // 3. Remove user from global and contest leaderboards
+    // Redis commands: ZREM lb:global <userId>, ZREM lb:contest:1 <userId>
+    pipeline.zrem('lb:global', userId);
+    pipeline.zrem('lb:contest:1', userId);
+
+    // 4. Adjust college leaderboard if user contributed points
+    if (score > 0 && user.college) {
+      // Redis command: ZINCRBY lb:college -score <college>
+      pipeline.zincrby('lb:college', -score, user.college);
+    }
+
+    // 5. Remove solved set, submission history list, streak bitmap
+    // Redis commands: DEL solved:<userId>, DEL user:<userId>:history, DEL streak:<userId>:2026
+    pipeline.del(`solved:${userId}`);
+    pipeline.del(`user:${userId}:history`);
+    pipeline.del(`streak:${userId}:2026`);
+
+    // 6. Invalidate active session
+    // Redis command: DEL session:<token>
+    pipeline.del(`session:${req.token}`);
+
+    await pipeline.exec();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Account and associated Redis data deleted successfully.'
+    });
+  } catch (err) {
+    console.error('[Delete Account Error]', err);
+    return res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: err.message }
+    });
+  }
+});
+
 export default router;

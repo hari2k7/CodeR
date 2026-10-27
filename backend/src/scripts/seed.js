@@ -4,7 +4,7 @@ import { redis } from '../redis.js';
 // Predefined colleges for university DBMS case study
 const COLLEGES = [
   'MIT', 'Stanford', 'UC Berkeley', 'Carnegie Mellon', 'Harvard',
-  'IIT Bombay', 'Oxford', 'Cambridge', 'Tsinghua', 'ETH Zurich'
+  'IIT Bombay', 'Oxford', 'Cambridge', 'Tsinghua', 'ETH Zurich', 'Amrita University'
 ];
 
 // 50 canonical competitive programming problems with varied tags and difficulties

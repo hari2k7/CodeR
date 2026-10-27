@@ -16,7 +16,6 @@ export default function Navbar() {
       <div className="nav-inner">
         <Link to="/" className="nav-brand">
           <span>CodeRank</span>
-          <span className="brand-badge">Redis Core</span>
         </Link>
 
         <nav className="nav-links">

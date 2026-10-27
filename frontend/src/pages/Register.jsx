@@ -118,6 +118,7 @@ export default function Register() {
                 onChange={(e) => setFormData({ ...formData, college: e.target.value })}
               >
                 <option value="MIT">MIT</option>
+                <option value="Amrita University">Amrita University</option>
                 <option value="Stanford">Stanford</option>
                 <option value="UC Berkeley">UC Berkeley</option>
                 <option value="Carnegie Mellon">Carnegie Mellon</option>

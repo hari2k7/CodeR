@@ -45,7 +45,9 @@ export const authAPI = {
   resendOtp: (email) => request('/auth/resend-otp', { method: 'POST', body: JSON.stringify({ email }) }),
   login: (identifier, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ identifier, password }) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
-  getMe: () => request('/auth/me')
+  getMe: () => request('/auth/me'),
+  updateProfile: (body) => request('/auth/me', { method: 'PUT', body: JSON.stringify(body) }),
+  deleteAccount: () => request('/auth/me', { method: 'DELETE' })
 };
 
 export const problemsAPI = {

@@ -1,19 +1,26 @@
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
 import { redis } from '../redis.js';
 
-// Setup optional Nodemailer transporter if SMTP config is provided in .env
-let transporter = null;
-if (process.env.SMTP_HOST && process.env.SMTP_USER) {
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
-    secure: process.env.SMTP_PORT === '465',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
-  });
+dotenv.config();
+
+/**
+ * Returns a Nodemailer transporter if SMTP credentials are provided in .env
+ */
+function getTransporter() {
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587', 10),
+      secure: process.env.SMTP_PORT === '465',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+  }
+  return null;
 }
 
 /**
@@ -27,6 +34,8 @@ export function generateOTP() {
  * Send OTP via Nodemailer SMTP or fallback to console
  */
 export async function sendOTPEmail(email, otp) {
+  const transporter = getTransporter();
+
   if (transporter) {
     try {
       await transporter.sendMail({
@@ -46,6 +55,8 @@ export async function sendOTPEmail(email, otp) {
     } catch (err) {
       console.warn(`[OTP] SMTP send failed (${err.message}). Using console fallback.`);
     }
+  } else {
+    console.log('[OTP] Notice: No SMTP settings found in backend/.env. Using demo console fallback.');
   }
 
   // Mandatory demo fallback: log prominently to server console
@@ -54,6 +65,7 @@ export async function sendOTPEmail(email, otp) {
   console.log(` Recipient: ${email}`);
   console.log(` Code:      ${otp}`);
   console.log(' TTL:       300 seconds (5 minutes)');
+  console.log(` Redis key: otp:${email.toLowerCase()}`);
   console.log('='.repeat(60) + '\n');
   return true;
 }
