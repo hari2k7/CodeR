@@ -10,9 +10,9 @@
     "worker": "node src/worker/judge.js",
     "seed": "node src/scripts/seed.js",
     "seed:reset": "node src/scripts/seed.js --reset",
-    "mysql:setup": "node src/scripts/mysql-setup.js",
     "benchmark": "node src/scripts/benchmark.js",
-    "race-demo": "node src/scripts/race-demo.js"
+    "race-demo": "node src/scripts/race-demo.js",
+    "schema": "node src/scripts/schema.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
@@ -20,7 +20,6 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "ioredis": "^5.4.2",
-    "mysql2": "^3.12.0",
     "nodemailer": "^6.9.16"
   }
 }

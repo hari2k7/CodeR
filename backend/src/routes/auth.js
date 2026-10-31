@@ -309,6 +309,7 @@ router.post('/resend-otp', async (req, res) => {
  */
 router.post('/login', loginBruteForceGuard, async (req, res) => {
   const ip = req.ip || req.connection.remoteAddress || '127.0.0.1';
+  console.log('Client IP:', ip);
   try {
     const { identifier, password } = req.body;
     if (!identifier || !password) {
